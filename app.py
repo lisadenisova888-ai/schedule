@@ -9,6 +9,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from checker import validator
+from dynamic_scheduler import apply_dynamic_change, extract_options, normalize_schedule
 from excel_to_json import convert_excel_to_json, create_template
 from json_to_calendar import convert_json_to_calendar
 from scheduler import schedule as build_schedule
@@ -134,12 +135,36 @@ def index():
     return render_template("index.html")
 
 
+@app.get("/dynamic")
+def dynamic():
+    return render_template("dynamic.html")
+
+
 @app.get("/download/template")
 def download_template():
     template_path = OUTPUT_DIR / "schedule_data_template.xlsx"
     if not template_path.exists():
         create_template(template_path)
     return send_file(template_path, as_attachment=True, download_name="schedule_data_template.xlsx")
+
+
+@app.get("/download/schedule-template")
+def download_schedule_template():
+    template_path = OUTPUT_DIR / "schedule_template.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Все занятия"
+    sheet.append(["день недели", "время", "группа", "предмет", "тип", "преподаватель", "аудитория"])
+    sheet.append(["Понедельник", "09:00 – 10:30", "1011", "Математика", "Лекция", "Иванов Иван Иванович", "101"])
+    fill = PatternFill("solid", fgColor="4F7F94")
+    font = Font(color="FFFFFF", bold=True)
+    for cell in sheet[1]:
+        cell.fill = fill
+        cell.font = font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    autosize(sheet)
+    workbook.save(template_path)
+    return send_file(template_path, as_attachment=True, download_name="schedule_template.xlsx")
 
 
 @app.post("/api/upload-excel")
@@ -158,6 +183,53 @@ def upload_excel():
     except Exception as exc:
         return jsonify({"error": f"Файл не соответствует шаблону: {exc}. Скачайте шаблон, заполните его и загрузите снова."}), 400
     return jsonify({"data": data, "message": "Файл загружен"})
+
+
+@app.post("/api/upload-schedule")
+def upload_schedule():
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Файл не загружен"}), 400
+    filename = secure_filename(file.filename or "schedule.xlsx")
+    if not filename.lower().endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
+        return jsonify({"error": "Загрузите Excel-файл с расписанием."}), 400
+    input_path = UPLOAD_DIR / filename
+    output_path = OUTPUT_DIR / f"{Path(filename).stem}_schedule.json"
+    file.save(input_path)
+    try:
+        data = convert_excel_to_json(input_path, output_path)
+    except Exception as exc:
+        return jsonify({"error": f"Не удалось прочитать расписание: {exc}"}), 400
+    if not isinstance(data, dict) or "lessons" not in data:
+        try:
+            data = build_schedule(data)
+        except Exception as exc:
+            return jsonify({"error": f"Файл с расписанием должен содержать лист 'Все занятия' или данные для генерации: {exc}"}), 400
+    return jsonify({"data": normalize_schedule(data), "message": "Расписание загружено"})
+
+
+@app.post("/api/dynamic/options")
+def dynamic_options():
+    payload = request.get_json(silent=True) or {}
+    source_data = payload.get("source_data") or {}
+    schedule_data = payload.get("schedule") or {}
+    return jsonify(extract_options(source_data, schedule_data))
+
+
+@app.post("/api/dynamic/apply")
+def dynamic_apply():
+    payload = request.get_json(silent=True) or {}
+    source_data = payload.get("source_data") or {}
+    schedule_data = payload.get("schedule")
+    change = payload.get("change") or {}
+    if not schedule_data:
+        return jsonify({"error": "Загрузите расписание перед изменением."}), 400
+    try:
+        result = apply_dynamic_change(schedule_data, source_data, change)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 400
+    save_json(result, OUTPUT_DIR / "dynamic_schedule.json")
+    return jsonify(result)
 
 
 @app.post("/api/generate")

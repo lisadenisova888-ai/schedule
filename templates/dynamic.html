@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dynamic Schedule</title>
+<style>
+:root{--blue:#2f5f7a;--deep:#17384a;--paper:#eef3f5;--line:rgba(80,125,145,.45);--soft:#d8e6ec;--white:rgba(255,255,255,.58);--shadow:0 18px 48px rgba(31,63,80,.14);--radius:16px}*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Arial,Helvetica,sans-serif;color:var(--deep);background:radial-gradient(circle at 16% 18%,rgba(84,139,164,.11),transparent 30%),radial-gradient(circle at 84% 64%,rgba(103,153,176,.10),transparent 28%),linear-gradient(90deg,rgba(80,125,145,.48) 0 10px,transparent 10px),var(--paper)}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.26;background-image:linear-gradient(rgba(47,95,122,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(80,125,145,.10) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(to right,black 0 72%,transparent 100%)}.page{position:relative;z-index:1;min-height:100vh;padding:38px 54px}.header{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;margin-bottom:30px}.back{border:0;background:transparent;color:var(--blue);font-weight:900;letter-spacing:.05em;cursor:pointer;padding:0 0 10px;font-size:15px}h1{margin:0;font-size:clamp(40px,5.6vw,80px);line-height:.8;letter-spacing:-.07em;text-transform:uppercase;font-weight:1000;max-width:760px}.sun{width:44px;height:44px;border:4px dotted var(--blue);border-radius:50%;animation:spin 10s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.layout{display:grid;grid-template-columns:minmax(340px,520px) 1fr;gap:34px;align-items:start}.stack{display:grid;gap:18px}.card,.panel{border:2px solid var(--line);border-radius:var(--radius);background:rgba(238,243,245,.72);box-shadow:var(--shadow);backdrop-filter:blur(3px);padding:24px}.panel{min-width:0}h2{margin:0 0 16px;font-size:24px;line-height:.96;text-transform:uppercase;letter-spacing:-.035em;font-weight:1000}p{margin:0 0 18px;font-size:16px;line-height:1.24;font-weight:800}.grid{display:grid;gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{font-size:12px;text-transform:uppercase;font-weight:1000;color:var(--blue)}input,select,textarea{width:100%;border:2px solid rgba(47,95,122,.36);background:var(--white);color:var(--deep);padding:12px;border-radius:10px;font-weight:800}textarea{min-height:92px;resize:vertical}.btn{border:0;background:linear-gradient(135deg,#7aa7bd,#9cbccc);color:#17384a;text-transform:uppercase;font-weight:1000;padding:14px 22px;border-radius:8px;cursor:pointer;min-width:150px;box-shadow:0 8px 0 rgba(47,95,122,.14);transition:.2s ease;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn:hover{transform:translate(6px,-5px);background:#2f5f7a;color:white;box-shadow:-6px 10px 0 rgba(80,125,145,.25)}.btn.secondary{background:transparent;border:2px solid var(--blue);box-shadow:none;color:var(--blue)}.row{display:flex;gap:10px;flex-wrap:wrap}.status{margin-top:10px;font-weight:900;white-space:pre-wrap}.error{color:#9a2340}.ok{color:#1d6f4a}.hint{font-size:13px;font-weight:800;opacity:.75}.tools{display:flex;justify-content:space-between;gap:14px;align-items:end;margin-bottom:16px;flex-wrap:wrap}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid rgba(47,95,122,.42);background:rgba(255,255,255,.36);color:var(--blue);font-weight:900;border-radius:8px;padding:8px 10px;cursor:pointer}.tab.active{background:var(--blue);color:white}table{border-collapse:collapse;width:100%;background:rgba(255,255,255,.22)}th,td{border:1px solid rgba(47,95,122,.34);padding:12px 14px;text-align:left;font-size:13px;font-weight:800;vertical-align:top}th{text-transform:uppercase;background:rgba(80,125,145,.15)}.lesson{display:block;font-weight:1000;color:#244f66}.muted{display:block;opacity:.78;margin-top:5px}.list{display:grid;gap:8px;max-height:250px;overflow:auto;border:2px dashed rgba(47,95,122,.28);border-radius:12px;padding:10px}.list label{text-transform:none;font-size:13px;color:var(--deep)}hr{border:0;border-top:1px solid rgba(47,95,122,.22);margin:10px 0}.hidden{display:none}@media(max-width:980px){.page{padding:28px 22px}.layout{grid-template-columns:1fr}.two{grid-template-columns:1fr}.tools{display:grid}.header{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<section class="page">
+  <header class="header">
+    <div><button class="back" onclick="location.href='/'">← BACK</button><h1>Dynamic<br>Schedule</h1></div>
+    <div class="sun"></div>
+  </header>
+  <main class="layout">
+    <div class="stack">
+      <article class="card">
+        <h2>1. Загрузите файлы</h2>
+        <div class="grid">
+          <label>Готовое расписание Excel</label>
+          <input id="scheduleFile" type="file" accept=".xlsx,.xlsm,.xltx,.xltm">
+          <div class="row"><button class="btn" onclick="uploadSchedule()">Загрузить</button><a class="btn secondary" href="/download/schedule-template">Шаблон</a></div>
+          <label>Данные для расписания Excel</label>
+          <input id="dataFile" type="file" accept=".xlsx,.xlsm,.xltx,.xltm">
+          <div class="row"><button class="btn" onclick="uploadData()">Загрузить</button><a class="btn secondary" href="/download/template">Шаблон данных</a></div>
+          <div id="uploadStatus" class="status"></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>2. Опишите изменение</h2>
+        <div class="grid">
+          <label>Что нужно внести в расписание</label>
+          <textarea id="changeText" placeholder="Например: заменить преподавателя у лекций по математике в понедельник"></textarea>
+          <label>Тип изменения</label>
+          <select id="actionType" onchange="renderAction()">
+            <option value="replace_teacher">Заменить учителя</option>
+            <option value="remove_lesson">Убрать занятие</option>
+            <option value="replace_lesson">Заменить занятие</option>
+            <option value="add_window">Добавить окно</option>
+          </select>
+          <div id="actionForm" class="grid"></div>
+          <button class="btn" onclick="applyChange()">Составить новое расписание</button>
+          <div id="changeStatus" class="status"></div>
+        </div>
+      </article>
+    </div>
+
+    <aside class="panel">
+      <div class="tools">
+        <div>
+          <label>Выбор группы</label>
+          <select id="groupSelect" onchange="renderSchedule()"></select>
+        </div>
+        <div class="row">
+          <button class="btn secondary" onclick="downloadCalendar()">Calendar ICS ↓</button>
+          <button class="btn secondary" onclick="downloadExcel()">Excel ↓</button>
+          <button class="btn secondary" onclick="downloadPdf()">PDF ↓</button>
+        </div>
+      </div>
+      <table id="scheduleTable"></table>
+    </aside>
+  </main>
+</section>
+
+<script>
+let sourceData={};
+let dynamicSchedule={lessons:[],unplaced_lessons:[]};
+let options={teachers:[],subjects:[],rooms:[],groups:[],days:['Понедельник','Вторник','Среда','Четверг','Пятница'],times:[],lessons:[]};
+
+const keys={day:'день_недели',time:'время',group:'группа',subject:'предмет',type:'тип',teacher:'преподаватель',room:'аудитория'};
+const days=['Понедельник','Вторник','Среда','Четверг','Пятница'];
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function splitGroups(v){return String(v||'').split(',').map(x=>x.trim()).filter(Boolean)}
+function listOptions(items,allLabel='Все'){return [`<option value="">${allLabel}</option>`,...items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`)].join('')}
+function lessonLine(lesson){return `${lesson[keys.day]} · ${lesson[keys.time]} · ${lesson[keys.group]} · ${lesson[keys.subject]} · ${lesson[keys.teacher]}`}
+
+async function uploadEndpoint(input, url, kind){
+  const file=input.files[0];
+  if(!file){alert('Выберите Excel-файл');return}
+  const fd=new FormData();fd.append('file',file);
+  uploadStatus.textContent=`Загружаю ${kind}...`;uploadStatus.className='status';
+  const res=await fetch(url,{method:'POST',body:fd});
+  const out=await res.json();
+  if(!res.ok){uploadStatus.textContent=out.error;uploadStatus.className='status error';return null}
+  uploadStatus.textContent=`${kind} загружен`;uploadStatus.className='status ok';
+  return out.data;
+}
+async function uploadSchedule(){const data=await uploadEndpoint(scheduleFile,'/api/upload-schedule','Расписание');if(data){dynamicSchedule=data;await refreshOptions();fillGroupSelect();renderSchedule();renderAction();}}
+async function uploadData(){const data=await uploadEndpoint(dataFile,'/api/upload-excel','Данные');if(data){sourceData=data;await refreshOptions();renderAction();}}
+async function refreshOptions(){
+  const res=await fetch('/api/dynamic/options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_data:sourceData,schedule:dynamicSchedule})});
+  options=await res.json();
+}
+function fillGroupSelect(){
+  const groups=options.groups.length?options.groups:[...new Set((dynamicSchedule.lessons||[]).flatMap(l=>splitGroups(l[keys.group])))];
+  groupSelect.innerHTML=['Все группы',...groups].map(g=>`<option>${esc(g)}</option>`).join('');
+}
+function renderSchedule(){
+  const lessons=dynamicSchedule.lessons||[];
+  const group=groupSelect.value||'Все группы';
+  const filtered=group==='Все группы'?lessons:lessons.filter(l=>splitGroups(l[keys.group]).includes(group));
+  const times=[...new Set(filtered.map(l=>l[keys.time]).filter(Boolean))].sort();
+  scheduleTable.innerHTML=`<thead><tr><th>Время / День</th>${days.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>${times.map(t=>`<tr><td>${esc(t)}</td>${days.map(d=>{const items=filtered.filter(l=>l[keys.time]===t&&l[keys.day]===d);return `<td>${items.map(l=>`<span class="lesson">${esc(l[keys.subject])} (${esc(l[keys.type])})</span><span class="muted">${esc(l[keys.group])} · ауд. ${esc(l[keys.room])}</span><span class="muted">${esc(l[keys.teacher])}</span>`).join('<hr>')}</td>`}).join('')}</tr>`).join('')||'<tr><td colspan="6">Загрузите расписание, чтобы увидеть таблицу.</td></tr>'}</tbody>`;
+}
+function filterLessons(){
+  const day=document.getElementById('filterDay')?.value||'';
+  const time=document.getElementById('filterTime')?.value||'';
+  const group=document.getElementById('filterGroup')?.value||'';
+  const subject=document.getElementById('filterSubject')?.value||'';
+  if(!day&&!time&&!group&&!subject)return [];
+  return (dynamicSchedule.lessons||[]).filter(l=>
+    (!day||l[keys.day]===day)&&(!time||l[keys.time]===time)&&(!subject||l[keys.subject]===subject)&&(!group||splitGroups(l[keys.group]).includes(group))
+  );
+}
+function selectedIds(){return [...document.querySelectorAll('input[name="lessonPick"]:checked')].map(x=>x.value)}
+function renderLessonChecks(lessons, emptyText='Выберите хотя бы один параметр занятия'){
+  return `<div class="list">${lessons.length?lessons.map(l=>`<label><input type="checkbox" name="lessonPick" value="${esc(l._id)}"> ${esc(lessonLine(l))}</label>`).join(''):`<span class="hint">${emptyText}</span>`}</div>`;
+}
+function filtersHtml(){return `<div class="two"><div><label>День</label><select id="filterDay" onchange="renderAction()">${listOptions(days)}</select></div><div><label>Время</label><select id="filterTime" onchange="renderAction()">${listOptions(options.times)}</select></div><div><label>Группа</label><select id="filterGroup" onchange="renderAction()">${listOptions(options.groups)}</select></div><div><label>Предмет</label><select id="filterSubject" onchange="renderAction()">${listOptions(options.subjects)}</select></div></div>`}
+function restoreFilters(values){
+  for(const [id,value] of Object.entries(values)){const el=document.getElementById(id);if(el)el.value=value}
+}
+function renderAction(){
+  const current={filterDay:document.getElementById('filterDay')?.value||'',filterTime:document.getElementById('filterTime')?.value||'',filterGroup:document.getElementById('filterGroup')?.value||'',filterSubject:document.getElementById('filterSubject')?.value||''};
+  const action=actionType.value;
+  if(action==='replace_teacher'){
+    const teacher=document.getElementById('currentTeacher')?.value||'';
+    const lessons=teacher?(dynamicSchedule.lessons||[]).filter(l=>l[keys.teacher]===teacher):[];
+    actionForm.innerHTML=`<div class="two"><div><label>Чьи занятия меняем</label><select id="currentTeacher" onchange="renderAction()">${listOptions(options.teachers,'Выберите учителя')}</select></div><div><label>Новый учитель</label><select id="newTeacher">${listOptions(options.teachers,'Выберите учителя')}</select></div></div>${renderLessonChecks(lessons,'Выберите учителя, чтобы увидеть его занятия')}`;
+    currentTeacher.value=teacher;
+  }
+  if(action==='remove_lesson'){
+    actionForm.innerHTML=`${filtersHtml()}${renderLessonChecks(filterLessons())}<div class="row"><label><input type="checkbox" id="removeFull" checked onchange="moveFree.checked=!this.checked"> Полностью убрать занятие</label><label><input type="checkbox" id="moveFree" onchange="removeFull.checked=!this.checked"> Перенести занятие на свободное время</label></div>`;
+    restoreFilters(current);
+  }
+  if(action==='replace_lesson'){
+    const mode=document.getElementById('subjectMode')?.value||'existing';
+    actionForm.innerHTML=`${filtersHtml()}${renderLessonChecks(filterLessons())}<label>На что заменить занятие</label><select id="subjectMode" onchange="renderAction()"><option value="existing">Выбрать имеющийся предмет</option><option value="custom">Добавить своё</option></select><div id="subjectBox">${mode==='existing'?`<select id="replacementSubject">${listOptions(options.subjects,'Выберите предмет')}</select>`:`<input id="replacementSubject" placeholder="Название нового занятия">`}</div><div class="two"><div><label>Преподаватель</label><select id="replacementTeacher">${listOptions(options.teachers,'Оставить как было')}</select></div><div><label>Кабинет</label><select id="replacementRoom">${listOptions(options.rooms,'Оставить как было')}</select></div></div>`;
+    restoreFilters(current);subjectMode.value=mode;
+  }
+  if(action==='add_window'){
+    actionForm.innerHTML=`<div class="two"><div><label>День</label><select id="windowDay">${days.map(d=>`<option>${d}</option>`).join('')}</select></div><div><label>Время</label><input id="windowTime" placeholder="09:00 – 10:30"></div><div><label>Группа</label><select id="windowGroup">${listOptions(options.groups,'Выберите группу')}</select></div></div>`;
+  }
+}
+async function applyChange(){
+  const action=actionType.value;
+  let change={action,note:changeText.value};
+  if(action==='replace_teacher')change={...change,teacher:newTeacher.value,lesson_ids:selectedIds()};
+  if(action==='remove_lesson')change={...change,mode:moveFree?.checked?'move':'remove',lesson_ids:selectedIds()};
+  if(action==='replace_lesson')change={...change,subject:replacementSubject.value,teacher:replacementTeacher.value,room:replacementRoom.value,lesson_ids:selectedIds()};
+  if(action==='add_window')change={...change,day:windowDay.value,time:windowTime.value,group:windowGroup.value};
+  changeStatus.textContent='Пересобираю расписание...';changeStatus.className='status';
+  const res=await fetch('/api/dynamic/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_data:sourceData,schedule:dynamicSchedule,change})});
+  const out=await res.json();
+  if(!res.ok){changeStatus.textContent=out.error;changeStatus.className='status error';return}
+  dynamicSchedule=out;await refreshOptions();fillGroupSelect();renderSchedule();renderAction();changeStatus.textContent='Новое расписание составлено';changeStatus.className='status ok';
+}
+async function downloadCalendar(){downloadViaPost('/api/calendar',{schedule:dynamicSchedule,repeat_weeks:16},'dynamic_schedule.ics')}
+async function downloadExcel(){downloadViaPost('/api/excel',{schedule:dynamicSchedule},'dynamic_schedule.xlsx')}
+async function downloadPdf(){downloadViaPost('/api/pdf',{schedule:dynamicSchedule},'dynamic_schedule.pdf')}
+async function downloadViaPost(url,payload,filename){const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!res.ok){const out=await res.json();alert(out.error);return}const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href)}
+fillGroupSelect();renderSchedule();renderAction();
+</script>
+</body>
+</html>
