@@ -1,15 +1,17 @@
 import json
 import tempfile
 import importlib.util
+from io import BytesIO
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "outputs"
-UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+TEMP_DIR = Path(tempfile.gettempdir()) / "schedule_site"
+UPLOAD_DIR = TEMP_DIR / "uploads"
+OUTPUT_DIR = TEMP_DIR / "outputs"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_module(alias, filename):
@@ -66,6 +68,16 @@ def make_schedule_template(path):
         sheet.column_dimensions[get_column_letter(index)].width = max(len(header) + 8, 18)
     sheet.freeze_panes = "A2"
     workbook.save(path)
+
+
+def excel_response(workbook_buffer, download_name):
+    workbook_buffer.seek(0)
+    return send_file(
+        workbook_buffer,
+        as_attachment=True,
+        download_name=download_name,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 def normalize_header(value):
@@ -302,9 +314,9 @@ def export_calendar():
 @app.get("/download/template")
 def download_data_template():
     try:
-        path = OUTPUT_DIR / "schedule_data_template.xlsx"
-        excel_to_json.create_template(path)
-        return send_file(path, as_attachment=True, download_name="schedule_data_template.xlsx")
+        buffer = BytesIO()
+        excel_to_json.create_template(buffer)
+        return excel_response(buffer, "schedule_data_template.xlsx")
     except Exception as error:
         return error_response(error)
 
@@ -312,9 +324,9 @@ def download_data_template():
 @app.get("/download/schedule-template")
 def download_schedule_template():
     try:
-        path = OUTPUT_DIR / "schedule_template.xlsx"
-        make_schedule_template(path)
-        return send_file(path, as_attachment=True, download_name="schedule_template.xlsx")
+        buffer = BytesIO()
+        make_schedule_template(buffer)
+        return excel_response(buffer, "schedule_template.xlsx")
     except Exception as error:
         return error_response(error)
 
