@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Создание расписания</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- Главный экран -->
+  <section class="page active" id="home">
+    <header class="header">
+      <div>
+        <h1>Создание<br>расписания</h1>
+      </div>
+      <div class="sun"></div>
+    </header>
+
+    <main class="layout">
+      <div class="cards">
+        <article class="card">
+          <div>
+            <h2>Создать своё расписание</h2>
+            <p>Загрузите данные и автоматически создайте персональное расписание.</p>
+            <button class="btn" onclick="showPage('input')">Создать расписание</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div>
+            <h2>Изменить расписание</h2>
+            <p>Загрузите готовое расписание и внесите нужные изменения.</p>
+            <button class="btn" onclick="showPage('dynamic')">Изменить расписание</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="decor-table" aria-hidden="true">
+        <table>
+          <thead>
+            <tr>
+              <th>Время</th>
+              <th>Понедельник</th>
+              <th>Вторник</th>
+              <th>Среда</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>08:00</td>
+              <td>Математика</td>
+              <td>Физика</td>
+              <td>Английский</td>
+            </tr>
+            <tr>
+              <td>09:45</td>
+              <td>Алгоритмы</td>
+              <td>Базы данных</td>
+              <td>Проект</td>
+            </tr>
+            <tr>
+              <td>11:30</td>
+              <td>Математика</td>
+              <td>Русский</td>
+              <td>Физика</td>
+            </tr>
+            <tr>
+              <td>13:45</td>
+              <td>Экомоника</td>
+              <td>Проект</td>
+              <td>Базы данных</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </section>
+
+  <!-- Экран ввода данных -->
+  <section class="page" id="input">
+    <header class="header">
+      <div>
+        <button class="back" onclick="showPage('home')">← Назад</button>
+        <h1>Создание<br>расписания</h1>
+      </div>
+      <div class="sun"></div>
+    </header>
+
+    <main class="layout">
+      <div class="cards">
+        <article class="card small-grid">
+          <h2>1. Загрузите Excel-файл</h2>
+          <p>Загрузите Excel-файл с исходными данными.</p>
+
+          <input id="excelFile" type="file" accept=".xlsx,.xlsm,.xltx,.xltm" />
+
+          <div class="checks upload-actions">
+            <button class="btn" onclick="uploadExcel()">Загрузить</button>
+            <a class="btn secondary" href="/download/template">Скачать шаблон</a>
+          </div>
+
+          <div id="uploadStatus" class="status"></div>
+        </article>
+
+        <article class="card small-grid">
+          <h2>2. Или введите данные вручную</h2>
+
+          <div class="form-grid">
+            <label>Что заполняем?</label>
+
+            <select id="entityType" onchange="renderForm()">
+              <option value="rooms">Аудитории</option>
+              <option value="teachers">Преподаватели</option>
+              <option value="subjects">Предметы</option>
+              <option value="groups">Группы</option>
+            </select>
+
+            <div id="dynamicForm"></div>
+
+            <button class="btn" onclick="addItem()">Добавить в список</button>
+            <button class="btn secondary" onclick="generateSchedule()">Создать расписание →</button>
+          </div>
+        </article>
+      </div>
+
+      <aside class="data-panel">
+        <h2>Предпросмотр данных</h2>
+
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('rooms')">Аудитории</button>
+          <button class="tab" onclick="switchTab('teachers')">Преподаватели</button>
+          <button class="tab" onclick="switchTab('subjects')">Предметы</button>
+          <button class="tab" onclick="switchTab('groups')">Группы</button>
+        </div>
+
+        <table class="data-table" id="previewTable"></table>
+      </aside>
+    </main>
+  </section>
+
+  <!-- Экран результата -->
+  <section class="page" id="result">
+    <header class="header">
+      <div>
+        <button class="back" onclick="showPage('input')">← Назад</button>
+        <h1>Создание<br>расписания</h1>
+      </div>
+      <div class="sun"></div>
+    </header>
+
+    <main>
+      <div class="schedule-tools">
+        <div>
+          <label>Выбор группы</label>
+          <select id="groupSelect" onchange="renderSchedule()"></select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" onclick="validateSchedule()">Проверить ошибки</button>
+          <button class="btn secondary" onclick="downloadCalendar()">Календарь ICS ↓</button>
+          <button class="btn secondary" onclick="downloadExcel()">Excel ↓</button>
+          <button class="btn secondary" onclick="downloadPdf()">PDF ↓</button>
+        </div>
+      </div>
+
+      <div id="resultStatus" class="status"></div>
+
+      <div class="schedule-wrap">
+        <table id="scheduleTable"></table>
+      </div>
+    </main>
+  </section>
+
+  <!-- Экран изменения расписания -->
+  <section class="page" id="dynamic">
+    <header class="header">
+      <div>
+        <button class="back" onclick="showPage('home')">← Назад</button>
+        <h1>Изменение<br>расписания</h1>
+      </div>
+      <div class="sun"></div>
+    </header>
+
+    <main class="layout">
+      <div class="stack">
+        <article class="card">
+          <h2>1. Загрузите файлы</h2>
+
+          <div class="grid">
+            <label>Готовое расписание Excel</label>
+            <input id="scheduleFile" type="file" accept=".xlsx,.xlsm,.xltx,.xltm" />
+
+            <div class="row">
+              <button class="btn" onclick="uploadSchedule()">Загрузить</button>
+              <a class="btn secondary" href="/download/schedule-template">Скачать шаблон</a>
+            </div>
+
+            <label>Данные для расписания Excel</label>
+            <input id="dataFile" type="file" accept=".xlsx,.xlsm,.xltx,.xltm" />
+
+            <div class="row">
+              <button class="btn" onclick="uploadData()">Загрузить</button>
+              <a class="btn secondary" href="/download/template">Скачать шаблон данных</a>
+            </div>
+
+            <div id="dynamicUploadStatus" class="status"></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>2. Выберите изменение</h2>
+
+          <div class="grid">
+            <label>Тип изменения</label>
+
+            <select id="actionType" onchange="renderAction()">
+              <option value="replace_teacher">Заменить преподавателя</option>
+              <option value="remove_lesson">Убрать занятие</option>
+              <option value="replace_lesson">Заменить занятие</option>
+            </select>
+
+            <div id="actionForm" class="grid"></div>
+
+            <button class="btn" onclick="applyChange()">Составить новое расписание</button>
+
+            <div id="changeStatus" class="status"></div>
+          </div>
+        </article>
+      </div>
+
+      <aside class="panel">
+        <div class="tools">
+          <div>
+            <label>Выбор группы</label>
+            <select id="dynamicGroupSelect" onchange="renderDynamicSchedule()"></select>
+          </div>
+
+          <div class="row">
+            <button class="btn secondary" onclick="downloadDynamicCalendar()">Календарь ICS ↓</button>
+            <button class="btn secondary" onclick="downloadDynamicExcel()">Excel ↓</button>
+            <button class="btn secondary" onclick="downloadDynamicPdf()">PDF ↓</button>
+          </div>
+        </div>
+
+        <table id="dynamicScheduleTable"></table>
+      </aside>
+    </main>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>

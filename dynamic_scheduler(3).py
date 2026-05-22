@@ -19,10 +19,6 @@ TEACHER_KEY = "преподаватель"
 ROOM_KEY = "аудитория"
 
 
-# =========================================================
-# БАЗОВЫЕ ФУНКЦИИ
-# =========================================================
-
 def normalize_text(value):
     return str(value or "").strip()
 
@@ -78,10 +74,6 @@ def split_groups(value):
     ]
 
 
-# =========================================================
-# ВРЕМЯ
-# =========================================================
-
 def parse_time_range(value):
     text = str(value or "")
     parts = re.findall(r"(\d{1,2}):(\d{2})", text)
@@ -120,10 +112,6 @@ def lesson_duration(lesson, source_data=None):
 def overlaps(start_a, end_a, start_b, end_b):
     return start_a < end_b and start_b < end_a
 
-
-# =========================================================
-# ПОИСК ПРЕДМЕТОВ И ПРЕПОДАВАТЕЛЕЙ ПО ДАННЫМ ИЗ EXCEL
-# =========================================================
 
 def subject_signature(name, lesson_type):
     return f"{normalize_key(name)} ({normalize_lesson_type(lesson_type)})"
@@ -205,10 +193,6 @@ def get_suitable_teachers_for_lesson(source_data, lesson, exclude_teacher=None):
     return result
 
 
-# =========================================================
-# АУДИТОРИИ
-# =========================================================
-
 def room_number(room):
     return str(room.get("номер", "")).strip()
 
@@ -267,10 +251,6 @@ def suitable_rooms(source_data, lesson):
     return result
 
 
-# =========================================================
-# ПРОВЕРКА КОНФЛИКТОВ
-# =========================================================
-
 def lesson_conflicts(candidate, lesson, ignore_ids=None):
     ignore_ids = set(ignore_ids or [])
 
@@ -321,9 +301,6 @@ def is_slot_free(lessons, candidate, ignore_ids=None):
     return not get_conflicts(lessons, candidate, ignore_ids)
 
 
-# =========================================================
-# ОЦЕНКА ИЗМЕНЕНИЙ
-# =========================================================
 
 def movement_score(original_lesson, new_day, new_start):
     old_day = original_lesson.get(DAY_KEY)
@@ -378,10 +355,6 @@ def total_change_score(original_lessons, changed_lessons):
     return score
 
 
-# =========================================================
-# ПОИСК СЛОТОВ
-# =========================================================
-
 def generate_slots_for_lesson(lessons, source_data, lesson, ignore_ids=None):
     ignore_ids = set(ignore_ids or [])
     duration = lesson_duration(lesson, source_data)
@@ -391,6 +364,11 @@ def generate_slots_for_lesson(lessons, source_data, lesson, ignore_ids=None):
     for day in DAYS:
         for start in range(START_DAY, END_DAY - duration + 1, STEP_MIN):
             end = start + duration
+            old_day = lesson.get(DAY_KEY)
+            old_start, _ = parse_time_range(lesson.get(TIME_KEY))
+
+            if day == old_day and start == old_start:
+                continue
 
             candidate = deepcopy(lesson)
             candidate[DAY_KEY] = day
@@ -405,6 +383,9 @@ def generate_slots_for_lesson(lessons, source_data, lesson, ignore_ids=None):
 
 
 def move_lesson_to_best_slot(lessons, source_data, lesson, extra_ignore_ids=None):
+    old_day = lesson.get(DAY_KEY)
+    old_time = lesson.get(TIME_KEY)
+
     ignore_ids = {lesson_id(lesson)}
     ignore_ids.update(extra_ignore_ids or [])
 
@@ -423,18 +404,21 @@ def move_lesson_to_best_slot(lessons, source_data, lesson, extra_ignore_ids=None
     lesson[DAY_KEY] = day
     lesson[TIME_KEY] = format_time_range(start, end)
 
+    lesson["_moved_from"] = {
+        "день_недели": old_day,
+        "время": old_time
+    }
+
+    lesson["_moved_to"] = {
+        "день_недели": day,
+        "время": lesson[TIME_KEY]
+    }
+
     return True
 
 
-# =========================================================
-# ПЛАНИРОВАНИЕ МИНИМАЛЬНЫХ ПЕРЕНОСОВ
-# =========================================================
-
 def try_relocate_lessons_with_min_score(lessons, source_data, lessons_to_move):
-    """
-    Переносит набор занятий так, чтобы сумма изменений была минимальной.
-    Используется, например, когда нужно добавить окно и освободить место.
-    """
+
 
     original_lessons = deepcopy(lessons)
     move_ids = {lesson_id(lesson) for lesson in lessons_to_move}
@@ -493,10 +477,6 @@ def try_relocate_lessons_with_min_score(lessons, source_data, lessons_to_move):
     return best_lessons
 
 
-# =========================================================
-# ПОДБОР ПРЕПОДАВАТЕЛЯ
-# =========================================================
-
 def find_teacher_for_lesson(source_data, lessons, lesson, preferred_teacher=None):
     old_teacher = normalize_text(lesson.get(TEACHER_KEY))
 
@@ -542,10 +522,6 @@ def find_teacher_for_lesson(source_data, lessons, lesson, preferred_teacher=None
 
     return None, False
 
-
-# =========================================================
-# OPTIONS ДЛЯ САЙТА
-# =========================================================
 
 def extract_options(source_data, schedule_data):
     schedule = normalize_schedule(schedule_data)
@@ -620,10 +596,6 @@ def extract_options(source_data, schedule_data):
     }
 
 
-# =========================================================
-# 1. ЗАМЕНА ПРЕПОДАВАТЕЛЯ
-# =========================================================
-
 def apply_replace_teacher(lessons, source_data, change):
     ids = change.get("lesson_ids", [])
     teacher_by_lesson = change.get("teacher_by_lesson", {})
@@ -649,8 +621,11 @@ def apply_replace_teacher(lessons, source_data, change):
 
         if not teacher:
             raise ValueError(
-                f"Не найден подходящий преподаватель для "
-                f"«{lesson.get(SUBJECT_KEY)}» ({lesson.get(TYPE_KEY)})."
+                f"Нельзя заменить преподавателя для пары "
+                f"«{lesson.get(SUBJECT_KEY)}» ({lesson.get(TYPE_KEY)}), "
+                f"{lesson.get(DAY_KEY)}, {lesson.get(TIME_KEY)}. "
+                f"Нет преподавателя, который может вести этот предмет "
+                f"и которого можно поставить без конфликтов."
             )
 
         lesson[TEACHER_KEY] = teacher
@@ -669,10 +644,6 @@ def apply_replace_teacher(lessons, source_data, change):
                 )
 
 
-# =========================================================
-# 2. УБРАТЬ ИЛИ ПЕРЕНЕСТИ ЗАНЯТИЕ
-# =========================================================
-
 def apply_remove_lesson(result, lessons, source_data, change):
     ids = {str(item) for item in change.get("lesson_ids", [])}
     mode = change.get("mode")
@@ -681,7 +652,12 @@ def apply_remove_lesson(result, lessons, source_data, change):
         raise ValueError("Выберите занятия для изменения.")
 
     if mode == "move":
+        moved_messages = []
+
         for lesson in selected_lessons(lessons, ids):
+            old_day = lesson.get(DAY_KEY)
+            old_time = lesson.get(TIME_KEY)
+
             moved = move_lesson_to_best_slot(
                 lessons=lessons,
                 source_data=source_data,
@@ -692,6 +668,14 @@ def apply_remove_lesson(result, lessons, source_data, change):
                 raise ValueError(
                     f"Не удалось перенести занятие «{lesson.get(SUBJECT_KEY)}»."
                 )
+
+            moved_messages.append(
+                f"Занятие «{lesson.get(SUBJECT_KEY)}» "
+                f"перенесено с {old_day}, {old_time} "
+                f"на {lesson.get(DAY_KEY)}, {lesson.get(TIME_KEY)}."
+            )
+
+        result["message"] = "\n".join(moved_messages)
 
         return lessons
 
@@ -705,16 +689,13 @@ def apply_remove_lesson(result, lessons, source_data, change):
     return lessons
 
 
-# =========================================================
-# 3. ЗАМЕНА ПРЕДМЕТА
-# =========================================================
-
 def apply_replace_lesson(lessons, source_data, change):
     ids = change.get("lesson_ids", [])
 
     new_subject = normalize_text(change.get("subject"))
     new_teacher = normalize_text(change.get("teacher"))
     new_room = normalize_text(change.get("room"))
+    subject_mode = normalize_text(change.get("subject_mode"))
 
     if not ids:
         raise ValueError("Выберите занятия для изменения.")
@@ -728,12 +709,39 @@ def apply_replace_lesson(lessons, source_data, change):
         if new_room:
             if not room_is_suitable(source_data, new_room, lesson):
                 raise ValueError(
-                    f"Аудитория {new_room} не подходит для занятия "
-                    f"«{new_subject}»."
+                    f"Аудитория {new_room} не подходит для занятия «{new_subject}»."
                 )
 
             lesson[ROOM_KEY] = new_room
 
+        if subject_mode == "custom":
+            if new_teacher:
+                test_lesson = deepcopy(lesson)
+                test_lesson[TEACHER_KEY] = new_teacher
+
+                if not is_slot_free(
+                    lessons,
+                    test_lesson,
+                    ignore_ids={lesson_id(lesson)}
+                ):
+                    moved = move_lesson_to_best_slot(
+                        lessons=lessons,
+                        source_data=source_data,
+                        lesson=test_lesson
+                    )
+
+                    if not moved:
+                        raise ValueError(
+                            f"Преподаватель {new_teacher} занят в это время, "
+                            f"и свободный слот для занятия «{new_subject}» не найден."
+                        )
+
+                    lesson[DAY_KEY] = test_lesson[DAY_KEY]
+                    lesson[TIME_KEY] = test_lesson[TIME_KEY]
+
+                lesson[TEACHER_KEY] = new_teacher
+
+            continue
         if new_teacher:
             if not teacher_can_teach_lesson(source_data, new_teacher, lesson):
                 raise ValueError(
@@ -770,72 +778,6 @@ def apply_replace_lesson(lessons, source_data, change):
                 )
 
 
-# =========================================================
-# 4. ДОБАВИТЬ ОКНО
-# =========================================================
-
-def apply_add_window(lessons, source_data, change):
-    day = normalize_text(change.get("day"))
-    time_range = normalize_text(change.get("time"))
-    group = normalize_text(change.get("group"))
-
-    if not day or not time_range or not group:
-        raise ValueError("Укажите день, время и группу для окна.")
-
-    start, end = parse_time_range(time_range)
-
-    if start is None:
-        raise ValueError("Время должно быть в формате 09:00 или 09:00 – 10:30.")
-
-    window = {
-        "_id": f"window-{datetime.utcnow().timestamp()}",
-        ROOM_KEY: "-",
-        TEACHER_KEY: "-",
-        SUBJECT_KEY: "Окно",
-        TYPE_KEY: "Окно",
-        GROUP_KEY: group,
-        DAY_KEY: day,
-        TIME_KEY: format_time_range(start, end)
-    }
-
-    conflicting_lessons = []
-
-    for lesson in lessons:
-        if lesson.get(DAY_KEY) != day:
-            continue
-
-        lesson_start, lesson_end = parse_time_range(lesson.get(TIME_KEY))
-
-        if lesson_start is None:
-            continue
-
-        same_group = group in split_groups(lesson.get(GROUP_KEY))
-
-        if same_group and overlaps(start, end, lesson_start, lesson_end):
-            conflicting_lessons.append(lesson)
-
-    if conflicting_lessons:
-        rebuilt_lessons = try_relocate_lessons_with_min_score(
-            lessons=lessons,
-            source_data=source_data,
-            lessons_to_move=conflicting_lessons
-        )
-
-        if rebuilt_lessons is None:
-            raise ValueError("Не удалось освободить место для окна.")
-
-        lessons[:] = rebuilt_lessons
-
-    if not is_slot_free(lessons, window):
-        raise ValueError("Не удалось добавить окно: выбранный слот всё ещё занят.")
-
-    lessons.append(window)
-
-
-# =========================================================
-# ГЛАВНАЯ ФУНКЦИЯ
-# =========================================================
-
 def sort_lessons(lessons):
     return sorted(
         lessons,
@@ -862,9 +804,6 @@ def apply_dynamic_change(schedule_data, source_data, change):
 
     elif action == "replace_lesson":
         apply_replace_lesson(lessons, source_data, change)
-
-    elif action == "add_window":
-        apply_add_window(lessons, source_data, change)
 
     else:
         raise ValueError("Выберите тип изменения расписания.")
